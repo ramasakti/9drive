@@ -4,6 +4,12 @@
 
 9Drive is a storage gateway web app for connecting multiple Google Drive accounts into one virtual storage dashboard. Users can register with email/password or Google, automatically connect their first Google Drive account during Google sign-in, track quota, upload files into a dedicated `9drive` Drive folder, organize files with virtual folders, preview files, sync MySQL from Google Drive, and let the backend route uploads to the Drive account with enough free space.
 
+## License
+
+Copyright 2026 Zenhosta
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
+
 ## Features
 
 - Google Drive and S3-compatible storage gateway in one virtual storage dashboard.
