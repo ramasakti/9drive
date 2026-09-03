@@ -1,14 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js 20+ is required." >&2
-  exit 1
-fi
-
-node_major=$(node --version | sed 's/^v//' | cut -d. -f1)
-if [ "$node_major" -lt 20 ]; then
-  echo "Node.js 20+ is required. Found $(node --version)." >&2
+if ! command -v bun >/dev/null 2>&1; then
+  echo "Bun is required." >&2
   exit 1
 fi
 
@@ -17,7 +11,7 @@ backend_dir="$script_dir/backend"
 frontend_dir="$script_dir/frontend"
 
 random_key() {
-  node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"
+  bun -e "console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex'))"
 }
 
 if [ ! -f "$backend_dir/.env" ]; then
@@ -50,7 +44,7 @@ if [ ! -f "$frontend_dir/.env" ]; then
   echo "Created frontend/.env"
 fi
 
-(cd "$backend_dir" && npm install && npm run prisma:generate)
-(cd "$frontend_dir" && npm install)
+(cd "$backend_dir" && bun install && bun run prisma:generate)
+(cd "$frontend_dir" && bun install)
 
-echo "Setup complete. Run migrations with: cd backend && npm run prisma:migrate"
+echo "Setup complete. Run migrations with: cd backend && bun run prisma:migrate"

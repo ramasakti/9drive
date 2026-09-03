@@ -1,17 +1,17 @@
-FROM node:20-alpine AS base
+FROM oven/bun:1-alpine AS base
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY package.json bun.lock ./
 COPY prisma ./prisma
 
-RUN npm ci
+RUN bun install --frozen-lockfile
 
 COPY tsconfig.json ./
 COPY src ./src
 
-RUN npm run build && npx prisma generate
+RUN bun run build && bun run prisma:generate
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npm run db:migrate:deploy && npm run seed:google-config:docker && node dist/server.js"]
+CMD ["sh", "-c", "bun run db:migrate:deploy && bun run seed:google-config:docker && bun dist/server.js"]

@@ -1,29 +1,12 @@
 services:
-  mysql:
-    image: mysql:8.4
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-9drive}
-      MYSQL_USER: ${MYSQL_USER:-9drive}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-this-database-password}
-    volumes:
-      - mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-
   backend:
     build:
       context: ./backend
     restart: unless-stopped
-    depends_on:
-      mysql:
-        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
-      DATABASE_URL: mysql://${MYSQL_USER:-9drive}:${MYSQL_PASSWORD:-change-this-database-password}@mysql:3306/${MYSQL_DATABASE:-9drive}
+      DATABASE_URL: ${DATABASE_URL:-mysql://9drive:change-this-database-password@host.docker.internal:3306/9drive}
       APP_PORT: 4000
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-this-jwt-secret-at-least-32-chars}
@@ -49,5 +32,3 @@ services:
     ports:
       - "5173:80"
 
-volumes:
-  mysql_data:
