@@ -10,6 +10,7 @@ import { requireAuth, type AuthRequest } from '../../middleware/auth.middleware.
 import { ensureGoogleAppFolder, getAuthedGoogleClient, syncGoogleQuota } from '../google/google.service.js'
 import { buildS3ObjectKey, getS3ConfigForAccount, syncS3Quota, uploadS3Object } from '../s3/s3.service.js'
 import { createAuditLog } from '../../utils/audit.js'
+import { hashToken, randomToken } from '../../utils/crypto.js'
 
 export const uploadRouter = Router()
 
@@ -25,6 +26,13 @@ function syncQuotaInBackground(accountId: string, sessionId: string) {
   syncGoogleQuota(accountId)
     .then(() => logUpload('quota sync completed', { accountId, sessionId }))
     .catch((error) => logUpload('quota sync failed', { accountId, sessionId, message: error instanceof Error ? error.message : 'Unknown error' }))
+}
+
+async function createPublicFileUrls(fileId: string, userId: string, apiBaseUrl: string) {
+  const token = randomToken(32)
+  await prisma.fileShare.create({ data: { fileId, userId, token, tokenHash: hashToken(token), enabled: true } })
+  const publicUrl = `${apiBaseUrl}/public/files/${token}`
+  return { embedUrl: `${publicUrl}/preview`, downloadUrl: `${publicUrl}/download`, publicUrl }
 }
 
 function normalizePriorityAccountIds(value: unknown) {
@@ -116,6 +124,7 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
     let responded = false
     let fileSeen = false
     const reservedBytesByAccount = new Map<string, bigint>()
+    const apiBaseUrl = `${req.protocol}://${req.get('host')}`
     const completed: Array<Record<string, unknown>> = []
     const failed: Array<{ fileName: string; code: string; message: string }> = []
     const pendingUploads: Array<Promise<void>> = []
@@ -202,7 +211,8 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
           providerFileId = buildS3ObjectKey(config, req.user!.id, provisionalFile.id, fileName)
           await uploadS3Object(config, providerFileId, Readable.from(fileBuffer), meta.mimeType)
           await prisma.file.update({ where: { id: provisionalFile.id }, data: { providerFileId, status: 'active' } })
-          completed.push({ ...provisionalFile, providerFileId, status: 'active', sizeBytes: provisionalFile.sizeBytes.toString() })
+          const urls = await createPublicFileUrls(provisionalFile.id, req.user!.id, apiBaseUrl)
+          completed.push({ ...provisionalFile, providerFileId, status: 'active', sizeBytes: provisionalFile.sizeBytes.toString(), ...urls })
           logUpload('s3 upload completed', { sessionId: session.id, accountId: account.id, fileName })
         } else {
           const auth = await getAuthedGoogleClient(account)
@@ -250,7 +260,8 @@ export async function handleUpload(req: AuthRequest, res: Response, next: NextFu
         const file = account.provider === 's3' ? null : await prisma.file.create({ data: { userId: req.user!.id, connectedAccountId: account.id, folderId, provider: 'google_drive', providerFileId, name: uploadedName, mimeType: uploadedMimeType, sizeBytes: meta.sizeBytes } })
         if (file) {
           logUpload('database file created', { sessionId: session.id, fileId: file.id, accountId: account.id })
-          completed.push({ ...file, sizeBytes: file.sizeBytes.toString() })
+          const urls = await createPublicFileUrls(file.id, req.user!.id, apiBaseUrl)
+          completed.push({ ...file, sizeBytes: file.sizeBytes.toString(), ...urls })
         }
         await prisma.uploadSession.update({ where: { id: session.id }, data: { status: 'completed', completedAt: new Date() } })
         if (account.provider === 's3') syncS3Quota(account.id).catch(() => undefined)
@@ -543,7 +554,8 @@ uploadRouter.put('/resumable/chunk/:id', requireAuth, async (req: AuthRequest, r
 
       syncQuotaInBackground(account.id, session.id)
 
-      return res.status(201).json({ status: 'completed', file: { ...existingFile, sizeBytes: existingFile.sizeBytes.toString() } })
+      const urls = await createPublicFileUrls(existingFile.id, req.user!.id, `${req.protocol}://${req.get('host')}`)
+      return res.status(201).json({ status: 'completed', file: { ...existingFile, sizeBytes: existingFile.sizeBytes.toString(), ...urls } })
     }
 
     const errorMsg = await putRes.text()
