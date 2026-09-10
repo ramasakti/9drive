@@ -5,7 +5,7 @@ import { streamProviderFile } from '../files/stream-file.js'
 
 export const publicRouter = Router()
 
-async function findSharedFile(token: string) {
+export async function findSharedFile(token: string) {
   const share = await prisma.fileShare.findFirst({
     where: { enabled: true, AND: [{ OR: [{ token }, { tokenHash: hashToken(token) }] }, { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] }] },
     include: { file: { include: { connectedAccount: true } } },
@@ -13,6 +13,15 @@ async function findSharedFile(token: string) {
   if (!share || share.file.status !== 'active') throw new Error('Shared file not found')
   return share.file
 }
+
+publicRouter.get('/preview/:token', async (req, res, next) => {
+  try {
+    const file = await findSharedFile(String(req.params.token))
+    return streamProviderFile(file, req.headers.range, res, { disposition: 'inline' })
+  } catch (error) {
+    return next(error)
+  }
+})
 
 publicRouter.get('/files/:token', async (req, res, next) => {
   try {

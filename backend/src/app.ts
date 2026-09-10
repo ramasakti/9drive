@@ -24,6 +24,7 @@ app.use(express.json({ limit: '1mb' }))
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 app.use('/api', publicApiRouter)
+app.use('/api/files', publicRouter)
 app.use('/public', publicRouter)
 app.use('/auth', authRouter)
 app.use('/api-keys', apiKeyRouter)
