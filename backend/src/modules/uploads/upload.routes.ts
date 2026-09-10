@@ -31,7 +31,7 @@ function syncQuotaInBackground(accountId: string, sessionId: string) {
 async function createPublicFileUrls(fileId: string, userId: string, apiBaseUrl: string) {
   const token = randomToken(32)
   await prisma.fileShare.create({ data: { fileId, userId, token, tokenHash: hashToken(token), enabled: true } })
-  const publicUrl = `${apiBaseUrl}/api/files/preview/${token}`
+  const publicUrl = `${apiBaseUrl}/api/public/files/${token}/preview`
   return { embedUrl: publicUrl, downloadUrl: publicUrl, publicUrl }
 }
 
