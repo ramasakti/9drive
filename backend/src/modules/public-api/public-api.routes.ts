@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { google } from 'googleapis'
+import type { NextFunction, Request, Response } from 'express'
 import { prisma } from '../../config/prisma.js'
 import { requireApiKey } from '../../middleware/api-key.middleware.js'
 import { hashToken } from '../../utils/crypto.js'
@@ -9,9 +10,7 @@ import { handleUpload } from '../uploads/upload.routes.js'
 
 export const publicApiRouter = Router()
 
-publicApiRouter.post('/v1/uploads', requireApiKey('files:upload'), handleUpload)
-
-publicApiRouter.delete('/files/:code', requireApiKey('files:upload'), async (req, res, next) => {
+export async function deleteFileByPublicCode(req: Request, res: Response, next: NextFunction) {
   try {
     const code = String(req.params.code)
     const share = await prisma.fileShare.findFirst({
@@ -35,4 +34,7 @@ publicApiRouter.delete('/files/:code', requireApiKey('files:upload'), async (req
   } catch (error) {
     return next(error)
   }
-})
+}
+
+publicApiRouter.post('/v1/uploads', requireApiKey('files:upload'), handleUpload)
+publicApiRouter.delete('/files/:code', requireApiKey('files:upload'), deleteFileByPublicCode)

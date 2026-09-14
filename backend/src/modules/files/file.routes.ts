@@ -13,10 +13,15 @@ import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { Readable } from 'node:stream'
 import { ZipArchive } from 'archiver'
 import { createAuditLog } from '../../utils/audit.js'
+import { requireApiKey } from '../../middleware/api-key.middleware.js'
+import { deleteFileByPublicCode } from '../public-api/public-api.routes.js'
 
 
 
 export const fileRouter = Router()
+
+fileRouter.delete('/preview/:code', requireApiKey('files:upload'), deleteFileByPublicCode)
+fileRouter.delete('/:code', requireApiKey('files:upload'), deleteFileByPublicCode)
 
 fileRouter.get('/preview/:token', async (req, res, next) => {
   try {
